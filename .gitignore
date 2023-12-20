@@ -6,6 +6,7 @@ client_secret.json
 application_credentials.json
 storage.json
 credentials.json
+token.json
 token.pickle
 
 .DS_Store
@@ -115,3 +116,7 @@ venv.bak/
 # mypy
 .mypy_cache/
 Create Short LinkX
+
+out*.csv
+out.txt
+input.csv

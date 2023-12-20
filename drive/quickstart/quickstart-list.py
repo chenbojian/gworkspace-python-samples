@@ -14,6 +14,7 @@
 
 # [START drive_quickstart]
 import os.path
+import csv
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -22,7 +23,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 # If modifying these scopes, delete the file token.json.
-SCOPES = ["https://www.googleapis.com/auth/drive.metadata.readonly"]
+SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 
 def main():
@@ -51,20 +52,29 @@ def main():
   try:
     service = build("drive", "v3", credentials=creds)
 
-    # Call the Drive v3 API
-    results = (
-        service.files()
-        .list(pageSize=10, fields="nextPageToken, files(id, name)")
-        .execute()
-    )
-    items = results.get("files", [])
+    def listDrive(drive_id):
+      pageToken = None
+      while True:
+        results = (
+          service.files()
+          .list(pageToken=pageToken, pageSize=1000,corpora='drive', driveId=drive_id, includeItemsFromAllDrives=True, includeTeamDriveItems=True, supportsAllDrives=True, supportsTeamDrives=True, fields="nextPageToken, files(id, name, mimeType, driveId, size, modifiedTime, createdTime, shortcutDetails, parents)")
+          .execute()
+        )
+        items = results.get("files", [])
+        for item in items:
+          yield item
+        pageToken = results.get("nextPageToken", None)
+        if pageToken == None:
+          break
+    
+    def write_csv(out_file, drive_id):    
+      with open(out_file, 'w') as fp:
+        writer = csv.writer(fp, delimiter=",")
+        writer.writerow(['Id', 'Name', 'MimeType', 'Size', 'Created Time', 'Modified Time', 'ParentId', 'Shortcut Target Id', 'Shortcut Target MimeType'])
+        for item in listDrive(drive_id):
+          writer.writerow([item['id'], item['name'], item['mimeType'], item.get('size', None), item['createdTime'], item['modifiedTime'], item.get('parents', [None])[0], item.get('shortcutDetails', {}).get('targetId'), item.get('shortcutDetails', {}).get('targetMimeType')])
 
-    if not items:
-      print("No files found.")
-      return
-    print("Files:")
-    for item in items:
-      print(f"{item['name']} ({item['id']})")
+  
   except HttpError as error:
     # TODO(developer) - Handle errors from drive API.
     print(f"An error occurred: {error}")
